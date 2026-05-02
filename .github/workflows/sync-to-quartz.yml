@@ -1,0 +1,47 @@
+name: Sync notes to Quartz
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    name: Sync to andstor/quartz content folder
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout notes repo
+        uses: actions/checkout@v4
+        with:
+          path: notes
+
+      - name: Checkout quartz repo
+        uses: actions/checkout@v4
+        with:
+          repository: andstor/quartz
+          ref: v4
+          token: ${{ secrets.QUARTZ_REPO_TOKEN }}
+          path: quartz
+
+      - name: Sync notes into quartz content folder
+        run: |
+          rsync -av --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.obsidian/' \
+            notes/ \
+            quartz/content/
+
+      - name: Commit and push changes to quartz
+        working-directory: quartz
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: sync notes from andstor/notes@${{ github.sha }}"
+            git push
+          fi
